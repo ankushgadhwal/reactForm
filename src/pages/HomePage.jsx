@@ -1,48 +1,45 @@
 import { useEffect, useState } from "react";
+import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 
 export default function HomePage() {
-  const [submitting, setSubmitting] = useState(false);
-  const [addProduct, setAddProduct] = useState(2);
+  let submitting = false;
   const [initialState, setInitialState] = useState({
     name: "",
     email: "",
     number: "",
-    products: [
-      {
-        productType: "",
-        productName: "",
-        productPrice: "",
-        productQty: "",
-        productTotal: "",
-      },
-    ],
-    gradTotal: "",
+    products: [],
   });
-
-  useEffect(() => {
-    console.log(addProduct);
-  }, [addProduct]);
 
   const [formError, setFormErr] = useState({});
 
   const onSubmit = (e) => {
     e.preventDefault();
     setFormErr(validateValue(initialState));
-    setSubmitting(true);
+    // setSubmitting((prev) => true);
+    submitting = true;
     submitForm();
   };
 
   const submitForm = () => {
-    if (Object.keys(formError).length === 0 && submitting) {
-      console.log("Form submitted successfully");
+    const allObjectsEmpty =
+      formError?.products &&
+      formError?.products?.every(
+        (product) => Object.keys(product).length === 0
+      );
+    console.log(formError);
+
+    if (submitting) {
+      console.log("Form submitted successfully", initialState);
     } else {
       console.log("Form has errors", formError);
-      setSubmitting(false);
+      // setSubmitting((prev) => false);
+      submitting = false;
     }
   };
 
   const validateValue = (inputValues) => {
     let error = {};
+    error.products = [];
     if (!inputValues.name) {
       error.name = "name is required";
     }
@@ -56,27 +53,35 @@ export default function HomePage() {
       error.products = "please add products";
     }
     for (let i = 0; i < inputValues.products.length; i++) {
-      error.products = [{}];
+      let productErr = {
+        // productType: "",
+        // productName: "",
+        // productPrice: "",
+        // productQty: "",
+      };
+
+      error.products.push(productErr);
       if (!inputValues.products[i].productType) {
-        error.products[i].productType = "please select product type";
+        error.products[i]["productType"] = "please select product type";
       }
       if (!inputValues.products[i].productName) {
-        error.products[i].productName = "please enter product name";
+        error.products[i]["productName"] = "please enter product name";
       }
       if (!inputValues.products[i].productPrice) {
-        error.products[i].productPrice = "please enter product price";
+        error.products[i]["productPrice"] = "please enter product price";
       }
       if (!inputValues.products[i].productQty) {
-        error.products[i].productQty = "please enter product quantity";
+        error.products[i]["productQty"] = "please enter product quantity";
       }
-      if (!inputValues.products[i].productTotal) {
-        error.products[i].productTotal = "please enter total price";
-      }
+      // if (!inputValues.products[i].productTotal) {
+      //   error.products[i].productTotal = "please enter total price";
+      // }
     }
 
     // if (!inputValues.products.gradTotal) {
     //   error.products.gradTotal = "please enter total price";
     // }
+
     return error;
   };
 
@@ -123,8 +128,9 @@ export default function HomePage() {
       }
     }
 
-    if (e.target.name === "products[productType]") {
+    if (e.target.name === `products.[${index}].[productType]`) {
       let products = initialState.products;
+
       products[index]["productType"] = e.target.value;
       setInitialState((prev) => ({
         ...prev,
@@ -144,7 +150,7 @@ export default function HomePage() {
       }
     }
 
-    if (e.target.name === "products[productName]") {
+    if (e.target.name === `products.[${index}].[productName]`) {
       let products = initialState.products;
       products[index]["productName"] = e.target.value;
       setInitialState((prev) => ({
@@ -165,9 +171,17 @@ export default function HomePage() {
       }
     }
 
-    if (e.target.name === "products[productPrice]") {
+    if (e.target.name === `products.[${index}].[productPrice]`) {
       let products = initialState.products;
       products[index]["productPrice"] = e.target.value;
+      if (
+        products[index]["productPrice"] !== "" &&
+        products[index]["productQty"] !== ""
+      ) {
+        products[index]["productTotal"] = `${
+          products[index]["productPrice"] * products[index]["productQty"]
+        }`;
+      }
       setInitialState((prev) => ({
         ...prev,
         products: [...products],
@@ -185,9 +199,17 @@ export default function HomePage() {
         }));
       }
     }
-    if (e.target.name === "products[productQty]") {
+    if (e.target.name === `products.[${index}].[productQty]`) {
       let products = initialState.products;
       products[index]["productQty"] = e.target.value;
+      if (
+        products[index]["productPrice"] !== "" &&
+        products[index]["productQty"] !== ""
+      ) {
+        products[index]["productTotal"] = `${
+          products[index]["productPrice"] * products[index]["productQty"]
+        }`;
+      }
       setInitialState((prev) => ({
         ...prev,
         products: [...products],
@@ -206,52 +228,81 @@ export default function HomePage() {
       }
     }
   };
+
   const addProductHandler = () => {
-    setAddProduct((prev) => prev + 1);
+    let products = initialState.products;
+    let length = products.length;
+
+    setInitialState((prev) => ({
+      ...prev,
+      products: [
+        ...products,
+        {
+          id: `${length + 1}`,
+          productType: "",
+          productName: "",
+          productPrice: "",
+          productQty: "",
+          productTotal: "",
+        },
+      ],
+    }));
   };
 
-  let ProductArray = [];
-  // eslint-disable-next-line no-undef
-  // _.times(2, (idx) => {
-  //   ProductArray.push();
-  // });
+  const resetForm = () => {
+    const resetData = resetValuesToEmptyString(initialState);
+    setInitialState(resetData);
+  };
 
-  function RepeatElement({ element, times }) {
-    // Create an array with 'times' number of elements, each being the element
-    const repeatedElements = Array(times).fill(element);
+  const resetValuesToEmptyString = (obj) => {
+    if (Array.isArray(obj)) {
+      // If it's an array, reset each item
+      return obj.map((item) => resetValuesToEmptyString(item));
+    } else if (typeof obj === "object" && obj !== null) {
+      // If it's an object, reset each key-value pair
+      const newObj = {};
+      for (let key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          newObj[key] = resetValuesToEmptyString(obj[key]);
+        }
+      }
+      return newObj;
+    } else {
+      // If it's a primitive value, return an empty string
+      return "";
+    }
+  };
 
-    return (
-      <div>
-        {repeatedElements.map((el, idx) => (
-          <div key={idx}>{el}</div> // Render each element
-        ))}
-      </div>
-    );
-  }
+  const removeProduct = (idx) => {
+    let products = initialState.products;
+    products.splice(idx, 1);
+    setInitialState((prev) => ({
+      ...prev,
+      products: [...products],
+    }));
+  };
 
-  // const onProductChange = async function () {
-  //   // simple fetch api
-  //   await fetch("https://fakestoreapi.com/products")
-  //     .then((res) => {
-  //       return res.json();
-  //     })
-  //     .then((data) => {
-  //       console.log(data);
-  //     })
-  //     .catch((err) => {
-  //       console.log(err);
-  //     });
+  const onDragEnd = (result) => {
+    const { source, destination } = result;
 
-  //   // axios fetch api
-  //   // axios
-  //   //   .get("https://fakestoreapi.com/products")
-  //   //   .then((res) => {
-  //   //     console.log(res.data);
-  //   //   })
-  //   //   .catch((err) => {
-  //   //     console.log(err);
-  //   //   });
-  // };
+    // If dropped outside the list, do nothing
+    if (!destination) {
+      return;
+    }
+
+    // If dropped in the same position, do nothing
+    if (source.index === destination.index) {
+      return;
+    }
+
+    const reorderedItems = Array.from(initialState.products);
+    const [removed] = reorderedItems.splice(source.index, 1); // Remove item from source
+    reorderedItems.splice(destination.index, 0, removed); // Insert item at destination
+    setInitialState((prev) => ({
+      ...prev,
+      products: reorderedItems,
+    }));
+  };
 
   return (
     <div className="container">
@@ -303,10 +354,10 @@ export default function HomePage() {
               onChange={onInpChang}
               value={initialState.number}
             />
+            {formError.number && (
+              <p className="error text-danger">{formError.number}</p>
+            )}
           </div>
-          {formError.number && (
-            <p className="error text-danger">{formError.number}</p>
-          )}
         </div>
 
         <hr className="my-5" />
@@ -320,125 +371,190 @@ export default function HomePage() {
           </button>
         </div>
 
-        <RepeatElement
-          element={
-            <div className="product-sec" key={idx}>
-              <div className="row my-4">
-                <div className="inp-field col-3">
-                  <label htmlFor="products[productType]" className="d-block">
-                    Product type
-                  </label>
-                  <select
-                    name="products[productType]"
-                    id="products[productType]"
-                    className="form-select"
-                    onChange={onInpChang}
-                    value={initialState.products[idx]?.productType}
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Droppable droppableId="droppable">
+            {(provided) => (
+              <div
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                style={{ width: "100%", margin: "0 auto" }}
+              >
+                {initialState.products.map((product, idx) => (
+                  <Draggable
+                    key={product.id}
+                    draggableId={product.id}
+                    index={idx}
                   >
-                    <option value="asd">asd</option>
-                    <option value="qwe">qwe</option>
-                    <option value="xzc">xzc</option>
-                  </select>
-                  {formError.products
-                    ? formError.products[idx]?.productType && (
-                        <p className="error text-danger">
-                          {formError.products[idx]?.productType}
-                        </p>
-                      )
-                    : ""}
-                </div>
-                <div className="inp-field col-3">
-                  <label htmlFor="products[productName]" className="d-block">
-                    Product name
-                  </label>
-                  <select
-                    name="products[productName]"
-                    id="products[productName]"
-                    className="form-select"
-                    onChange={onInpChang}
-                    value={initialState.products[idx]?.productName}
-                  >
-                    <option value="pop">pop</option>
-                    <option value="lkj">lkj</option>
-                    <option value="mnb">mnb</option>
-                  </select>
+                    {(provided) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        style={{
+                          userSelect: "none",
+                          padding: "10px",
+                          margin: "5px 0",
+                          backgroundColor: "#f0f0f0",
+                          border: "1px solid #ddd",
+                          borderRadius: "4px",
+                          ...provided.draggableProps.style,
+                        }}
+                      >
+                        <div className="product-sec">
+                          <button
+                            type="button"
+                            onClick={() => removeProduct(idx)}
+                            className="btn btn-danger float-end"
+                          >
+                            close
+                          </button>
 
-                  {formError.products
-                    ? formError.products[idx]?.productName && (
-                        <p className="error text-danger">
-                          {formError.products[idx]?.productName}
-                        </p>
-                      )
-                    : ""}
-                </div>
+                          <div className="row my-4">
+                            <div className="inp-field col-3">
+                              <label
+                                htmlFor={`products.[${idx}].[productType]`}
+                                className="d-block"
+                              >
+                                Product type
+                              </label>
+                              <select
+                                name={`products.[${idx}].[productType]`}
+                                id={`products.[${idx}].[productType]`}
+                                className="form-select"
+                                onChange={(e) => onInpChang(e, idx)}
+                                value={initialState?.products[idx]?.productType}
+                              >
+                                <option value="asd">asd</option>
+                                <option value="qwe">qwe</option>
+                                <option value="xzc">xzc</option>
+                              </select>
+                              {formError.products
+                                ? formError.products[idx]?.productType && (
+                                    <p className="error text-danger">
+                                      {formError.products[idx]?.productType}
+                                    </p>
+                                  )
+                                : ""}
+                            </div>
+                            <div className="inp-field col-3">
+                              <label
+                                htmlFor={`products.[${idx}].[productName]`}
+                                className="d-block"
+                              >
+                                Product name
+                              </label>
+                              <select
+                                name={`products.[${idx}].[productName]`}
+                                id={`products.[${idx}].[productName]`}
+                                className="form-select"
+                                onChange={(e) => onInpChang(e, idx)}
+                                value={initialState.products[idx]?.productName}
+                              >
+                                <option value="pop">pop</option>
+                                <option value="lkj">lkj</option>
+                                <option value="mnb">mnb</option>
+                              </select>
+
+                              {formError.products
+                                ? formError.products[idx]?.productName && (
+                                    <p className="error text-danger">
+                                      {formError.products[idx]?.productName}
+                                    </p>
+                                  )
+                                : ""}
+                            </div>
+                          </div>
+
+                          <div className="row">
+                            <div className="inp-field col">
+                              <label
+                                className="d-block"
+                                htmlFor={`products.[${idx}].[productPrice]`}
+                              >
+                                Price
+                              </label>
+                              <input
+                                type="number"
+                                name={`products.[${idx}].[productPrice]`}
+                                id={`products.[${idx}].[productPrice]`}
+                                onChange={(e) => onInpChang(e, idx)}
+                                value={initialState.products[idx]?.productPrice}
+                              />
+                              {formError.products
+                                ? formError.products[idx]?.productPrice && (
+                                    <p className="error text-danger">
+                                      {formError.products[idx]?.productPrice}
+                                    </p>
+                                  )
+                                : ""}
+                            </div>
+                            <div className="inp-field col">
+                              <label
+                                className="d-block"
+                                htmlFor={`products.[${idx}].[productQty]`}
+                              >
+                                Qty
+                              </label>
+                              <input
+                                type="number"
+                                name={`products.[${idx}].[productQty]`}
+                                id={`products.[${idx}].[productQty]`}
+                                onChange={(e) => onInpChang(e, idx)}
+                                value={initialState.products[idx]?.productQty}
+                              />
+                              {formError.products
+                                ? formError.products[idx]?.productQty && (
+                                    <p className="error text-danger">
+                                      {formError.products[idx]?.productQty}
+                                    </p>
+                                  )
+                                : ""}
+                            </div>
+
+                            <div className="inp-field col">
+                              <label
+                                className="d-block"
+                                htmlFor={`products.[${idx}].[productTotal]`}
+                              >
+                                Total
+                              </label>
+                              <input
+                                type="number"
+                                name={`products.[${idx}].[productTotal]`}
+                                id={`products.[${idx}].[productTotal]`}
+                                value={
+                                  initialState.products[idx]?.productPrice *
+                                  initialState.products[idx]?.productQty
+                                }
+                                disabled
+                              />
+                            </div>
+                          </div>
+                          <hr />
+                        </div>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
               </div>
+            )}
+          </Droppable>
+        </DragDropContext>
 
-              <div className="row">
-                <div className="inp-field col">
-                  <label className="d-block" htmlFor="products[productPrice]">
-                    Price
-                  </label>
-                  <input
-                    type="number"
-                    name="products[productPrice]"
-                    id="products[productPrice]"
-                    onChange={onInpChang}
-                    value={initialState.products[idx]?.productPrice}
-                  />
-                  {formError.products
-                    ? formError.products[idx]?.productPrice && (
-                        <p className="error text-danger">
-                          {formError.products[idx]?.productPrice}
-                        </p>
-                      )
-                    : ""}
-                </div>
-                <div className="inp-field col">
-                  <label className="d-block" htmlFor="products[productQty]">
-                    Qty
-                  </label>
-                  <input
-                    type="number"
-                    name="products[productQty]"
-                    id="products[productQty]"
-                    onChange={onInpChang}
-                    value={initialState.products[idx]?.productQty}
-                  />
-                  {formError.products
-                    ? formError.products[idx]?.productQty && (
-                        <p className="error text-danger">
-                          {formError.products[idx]?.productQty}
-                        </p>
-                      )
-                    : ""}
-                </div>
-
-                <div className="inp-field col">
-                  <label className="d-block" htmlFor="Total">
-                    Total
-                  </label>
-                  <input
-                    type="number"
-                    name="total"
-                    id="total"
-                    value={
-                      initialState.products[idx]?.productPrice *
-                      initialState.products[idx]?.productQty
-                    }
-                    disabled
-                  />
-                </div>
-              </div>
-            </div>
-          }
-          times={5}
-        />
         <button
           className="btn btn-primary mt-5"
           type="submit"
           onClick={(e) => onSubmit(e)}
         >
           Submit
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary mt-5 mx-2"
+          onClick={resetForm}
+        >
+          Reset
         </button>
       </form>
       {/* <button className="btn btn-primary" onClick={onSubmit}>
